@@ -1,152 +1,442 @@
-# FraudShield AI
+# FraudShield AI — Full-Stack Credit Card Fraud Detection & Investigation Platform
 
-An explainable credit card fraud scoring and case-review app: a leakage-free scikit-learn pipeline, a FastAPI service, and a React dashboard where analysts score transactions, inspect why they were flagged, and record decisions.
+An end-to-end machine learning application for detecting potentially fraudulent credit card transactions, scoring individual transactions and CSV batches, and managing flagged cases through an investigation workflow.
 
-> **Scope.** The data is the public ULB/Kaggle credit card dataset (European cardholders, Sept 2013) whose features `V1`–`V28` are anonymised PCA components. This is a portfolio project, not a validated bank fraud system, and explanations are about model inputs, never about merchants, locations or behaviour.
+**[Live Demo](https://fraud-shield-a3fka0i6w-charan-2d53.vercel.app) · [GitHub Repository](https://github.com/Charan-dev247/FraudShield-AI)**
 
-<!-- Add screenshots to /Images (dashboard.png, check.png, investigations.png, models.png), then uncomment:
-![Dashboard](Images/dashboard.png)
--->
+> **Disclaimer:** FraudShield AI is a portfolio demonstration built using an anonymized credit card transaction dataset. It is not a production banking or payment-processing system.
 
-## What it does
+---
 
-| Page | Purpose |
+## Table of Contents
+
+- [Overview](#overview)
+- [Live Application Screenshots](#live-application-screenshots)
+- [Key Features](#key-features)
+- [Application Workflow](#application-workflow)
+- [System Architecture](#system-architecture)
+- [Machine Learning Models](#machine-learning-models)
+- [Model Evaluation](#model-evaluation)
+- [Threshold Simulation](#threshold-simulation)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [API Documentation](#api-documentation)
+- [Limitations and Future Improvements](#limitations-and-future-improvements)
+
+## Overview
+
+Credit card fraud detection is a challenging machine learning problem because fraudulent transactions are rare compared with legitimate transactions. A useful detection system must identify suspicious activity while balancing missed fraud against false alarms.
+
+FraudShield AI combines a machine learning inference service with an interactive web application to demonstrate how a fraud detection workflow can operate.
+
+The application allows users to:
+
+- Score individual transactions and obtain fraud probability estimates.
+- Upload CSV files for batch transaction scoring.
+- Flag transactions for investigation based on a configurable alert threshold.
+- Review flagged cases and record investigation decisions.
+- Compare multiple machine learning models using held-out test results.
+- Explore precision-recall trade-offs, threshold simulations, latency, and input drift indicators.
+
+The project uses the Kaggle/U​​LB credit card fraud dataset, which contains anonymized principal component analysis (PCA) features rather than identifiable merchant or location details.
+
+## Live Application Screenshots
+
+### 1. Dashboard
+
+The dashboard provides an overview of scored transactions, alerts, pending investigations, and the current review queue.
+
+![FraudShield AI Dashboard](screenshots/dashboard.png)
+
+### 2. Transaction Scoring
+
+Users can enter the transaction time, amount, and anonymized PCA components to obtain a fraud probability estimate.
+
+![Transaction Scoring Interface](screenshots/check_transaction.png)
+
+### 3. Fraud Probability and Feature Contributions
+
+The scoring result displays the estimated fraud probability, risk classification, configured alert threshold, and feature-contribution information.
+
+![Transaction Scoring Result](screenshots/input_transaction.png)
+
+### 4. Investigation Management
+
+The investigations interface supports filtering and sorting cases, inspecting individual predictions, and recording decisions such as confirmed fraud, legitimate, or escalated.
+
+![Fraud Investigation Interface](screenshots/investigation.png)
+
+### 5. Model Comparison and Evaluation
+
+The model comparison dashboard displays validation and test PR-AUC, ROC-AUC, precision, recall, F1 score, false alarms, missed fraud, and inference latency.
+
+![Model Comparison Dashboard](screenshots/model_1.png)
+
+### 6. Threshold Simulation and Live Monitoring
+
+The monitoring dashboard includes a threshold simulator, estimated alerting trade-offs, recent scoring activity, latency and API error indicators, and input-shift monitoring.
+
+![Model Monitoring Dashboard](screenshots/model_2.png)
+
+## Key Features
+
+### Transaction Scoring
+
+- Single-transaction inference through a FastAPI backend.
+- Fraud probability estimation using the deployed Random Forest model.
+- Configurable alert threshold for deciding which transactions should be reviewed.
+- Risk classification and feature-contribution displays.
+- Recorded scoring latency.
+
+### CSV Batch Inference
+
+- Upload CSV files for batch scoring.
+- Support for up to 5 MB and 5,000 rows per upload.
+- Required columns: `Time`, `V1`–`V28`, and `Amount`.
+- Optional `Class` column is ignored during inference.
+- Batch results include scored transactions and flagged cases.
+
+### Investigation Workflow
+
+- Automatic case creation for scored transactions.
+- Case listing, filtering, and sorting by risk or status.
+- Individual case details, probability scores, and feature contributions.
+- Investigation actions for confirming fraud, marking a transaction legitimate, or escalating a case.
+- Review status tracking.
+
+### Model Evaluation
+
+- Comparison of Logistic Regression, Random Forest, and Gradient Boosting.
+- Chronological train, validation, and test splits.
+- Precision-recall and ROC-AUC evaluation.
+- Threshold selection based on validation performance.
+- Comparison of false alarms, missed fraud, F1 score, and latency.
+
+### Monitoring and Threshold Analysis
+
+- Configurable alert threshold simulation.
+- Precision and recall estimates at different thresholds.
+- Estimated costs associated with missed fraud and false alarms.
+- Recent scoring volume and latency indicators.
+- API error and input-distribution shift indicators.
+
+## Application Workflow
+
+1. A user enters a transaction or uploads a CSV file.
+2. The React frontend sends the input to the FastAPI backend.
+3. The backend validates the input and passes the required features to the deployed machine learning model.
+4. The model produces a fraud probability estimate.
+5. The probability is compared with the configured alert threshold.
+6. Transactions meeting the threshold are flagged for review and associated with investigation cases.
+7. Reviewers inspect cases and update their investigation status.
+8. The dashboard and monitoring pages display scoring activity, model evaluation, and threshold-related metrics.
+
+## System Architecture
+
+```text
+                 React + TypeScript
+                     Frontend
+                         |
+                         | HTTP / REST API
+                         v
+                    FastAPI Backend
+                         |
+             +-----------+-----------+
+             |                       |
+             v                       v
+      Input Validation        SQLAlchemy ORM
+             |                       |
+             v                       v
+      Random Forest Model      Application Database
+             |
+             v
+       Fraud Probability
+             |
+             v
+      Threshold Evaluation
+             |
+        +----+----+
+        |         |
+        v         v
+     Low Risk   Flagged Case
+                   |
+                   v
+             Investigation UI
+```
+
+The frontend is deployed on Vercel, while the backend API is deployed on Render.
+
+## Machine Learning Models
+
+Three classification models were trained and evaluated:
+
+- **Logistic Regression:** A linear classification baseline.
+- **Random Forest:** An ensemble of decision trees selected for deployment based on validation PR-AUC.
+- **Gradient Boosting:** A boosting-based classification model used for comparison.
+
+### Dataset
+
+The project uses the anonymized Kaggle/U​​LB credit card fraud dataset.
+
+| Property | Details |
 |---|---|
-| Dashboard | Volume, flagged rate, score distribution, 14-day trend, review queue, precision of reviewed alerts |
-| Check a transaction | Score one transaction (form or JSON) or a CSV batch; shows probability, risk band, alert threshold and the inputs that drove the score |
-| Investigations | Filter and page through cases, open one, record **Confirm fraud / Legitimate / Escalate** with a note; every action is stored in an audit history |
-| Model and monitoring | Model comparison with confidence intervals, PR curves, permutation importance, **threshold simulator** with a cost calculator, volume/latency/error counts and input-drift check |
+| Input features | `Time`, `V1`–`V28`, `Amount` |
+| Target label | `Class` |
+| Class 0 | Non-fraudulent transaction |
+| Class 1 | Fraudulent transaction |
+| Split strategy | Chronological split by `Time` |
 
-## Results (honest version)
+The displayed held-out test set contains 42,722 transactions, including 52 fraudulent transactions. The training and validation sets contain 199,364 and 42,721 transactions, respectively.
 
-Chronological split by `Time`: train 199,364 rows (384 fraud) · validation 42,721 (56 fraud) · test 42,722 (**52 fraud**).
-Models are ranked on **validation** PR-AUC; each model's alert threshold is chosen on validation (maximise recall subject to precision ≥ 0.80); the test set is used once, for reporting.
+### Data Splitting
 
-| Model | Val PR-AUC | Test PR-AUC | Precision | Recall | False alarms | Missed fraud |
-|---|---|---|---|---|---|---|
-| Logistic regression | 0.817 | 0.692 | 0.97 | 0.67 | 1 | 17 |
-| **Random forest (deployed)** | **0.878** | **0.778** | 0.76 | 0.75 | 12 | 13 |
-| Gradient boosting | 0.849 | 0.742 | 0.78 | 0.73 | 11 | 14 |
+The dataset was divided chronologically into training, validation, and test partitions to reduce the risk of using future transactions to select the model.
 
-95% bootstrap intervals for the deployed model on test: PR-AUC 0.67–0.87, precision 0.65–0.88, recall 0.63–0.85.
+| Partition | Transactions | Fraud cases |
+|---|---:|---:|
+| Training | 199,364 | 384 |
+| Validation | 42,721 | 56 |
+| Test | 42,722 | 52 |
 
-How to read this:
-- With only 52 test frauds the intervals are wide and **overlap across models**. The ranking is suggestive, not proven.
-- The precision floor was met on validation (≥ 0.80) but test precision came out at 0.76, a reminder that a threshold tuned on ~56 frauds is itself uncertain.
-- These numbers are lower than the original notebook's random-split result (RF F1 ≈ 0.87) because a time-ordered split is a harder and more realistic test: models are used on future transactions.
-- Logistic regression's threshold lands near 1.0 because `class_weight="balanced"` pushes its probabilities towards the extremes (uncalibrated). Its false-alarm count is low only at that extreme threshold.
+The validation set was used for model selection and alert-threshold selection. The held-out test set was used to report final comparison metrics.
 
-## Architecture
+## Model Evaluation
 
+The following values are taken from the deployed Model & Monitoring dashboard.
+
+| Model | Validation PR-AUC | Test PR-AUC | ROC-AUC | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| Logistic Regression | 81.7% | 69.2% | 97.7% | 97% | 67% | 0.80 |
+| **Random Forest (deployed)** | **87.9%** | **77.8%** | 92.3% | 76% | 75% | 0.76 |
+| Gradient Boosting | 84.4% | 70.0% | 97.6% | 80% | 69% | 0.74 |
+
+Random Forest was selected because it achieved the highest validation PR-AUC among the three evaluated models.
+
+Its reported held-out test PR-AUC is **77.8%**, with approximately **76% precision** and **75% recall** at the deployed operating threshold.
+
+### Why PR-AUC Matters
+
+Fraud detection datasets are highly imbalanced. Precision-recall metrics help evaluate the trade-off between identifying fraudulent transactions and generating false alarms.
+
+- **Precision:** The fraction of flagged transactions that are fraudulent.
+- **Recall:** The fraction of fraudulent transactions that are flagged.
+- **F1 score:** The harmonic mean of precision and recall.
+- **PR-AUC / Average Precision:** Summarizes precision-recall performance across score thresholds.
+- **ROC-AUC:** Measures ranking performance across false-positive and true-positive rates.
+
+The test set contains only 52 fraud cases, so individual predictions can noticeably affect the reported metrics. These results should be interpreted with that limitation in mind.
+
+## Threshold Simulation
+
+The application includes a threshold simulator to demonstrate how changing the alert threshold affects the fraud review process.
+
+The deployed threshold shown in the application is approximately **14.3%**.
+
+The dashboard also displays a simulation at a threshold of approximately 14%, with these illustrative test-set results:
+
+| Metric | Displayed result |
+|---|---:|
+| Precision | 88% |
+| Recall | 82% |
+| False alarms | 6 |
+| Missed fraud | 10 |
+| Alerts raised | 52 |
+
+The simulator also allows users to adjust the assumed costs of a missed fraud and a false alarm to compare estimated operational costs across thresholds.
+
+These are threshold-simulation results, not guarantees of future performance. They depend on the evaluated dataset and the selected cost assumptions.
+
+## Technology Stack
+
+| Layer | Technologies |
+|---|---|
+| Frontend | React, TypeScript, Vite |
+| Styling | Tailwind CSS |
+| Backend | Python, FastAPI |
+| Machine Learning | scikit-learn, NumPy, pandas |
+| Database layer | SQLAlchemy |
+| Model evaluation | Precision-recall metrics, ROC-AUC, F1 |
+| API testing | FastAPI Swagger UI |
+| Frontend deployment | Vercel |
+| Backend deployment | Render |
+| Version control | Git, GitHub |
+
+## Project Structure
+
+```text
+Credit_Card_Fraud_Detection/
+├── .github/
+├── backend/
+│   ├── app/
+│   ├── tests/
+│   ├── Dockerfile
+│   └── requirements.txt
+├── data/
+├── frontend/
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.ts
+├── NoteBook/
+├── screenshots/
+│   ├── dashboard.png
+│   ├── check_transaction.png
+│   ├── input_transaction.png
+│   ├── investigation.png
+│   ├── model_1.png
+│   └── model_2.png
+├── docker-compose.yml
+├── .gitignore
+└── README.md
 ```
-React + Vite + TypeScript + Tailwind (Recharts)
-        │  JSON over HTTP  (/api/v1/…)
-        ▼
-FastAPI ── Pydantic validation ── routers: predict · transactions · insights
-   │                │
-   ▼                ▼
-sklearn Pipeline    SQLAlchemy ── SQLite (local) / PostgreSQL (docker, prod)
-(preprocess +       tables: transactions, audit_events
- classifier)
-+ metadata.json (threshold, metrics, importance, baselines)
-```
 
-Key ML decisions (all in `backend/ml/`):
-- **No leakage.** The only learned preprocessing step (scaling log-amount) lives inside the `Pipeline`, so it is fitted on training rows only and replayed identically at inference. `tests/test_ml.py` checks this.
-- **Time features.** `Time` is a running counter that cannot generalise to the future, so only time-of-day (sin/cos) is used; `Amount` is `log1p`-scaled.
-- **Metrics for imbalance.** PR-AUC, precision, recall, F1, ROC-AUC, false positives/negatives and single-row latency; accuracy is not used.
-- **Explanations.** Local: replace each input with its training median and measure the change in fraud probability ("baseline substitution"). Global: permutation importance on validation. These are model-agnostic approximations, **not Shapley values**.
+The exact contents of the backend and frontend directories may evolve as the project is extended.
 
-## Run it locally (Windows PowerShell)
+## Getting Started
 
-Put `creditcard.csv` in `data/` (it is git-ignored), then:
+### Prerequisites
 
-```powershell
-cd backend
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1          # if blocked: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-pip install -r requirements-dev.txt
+Install the following tools:
 
-python -m ml.train --data ..\data\creditcard.csv   # ~6 min on one core; add --fast for a quick check
-python -m scripts.seed_demo                        # optional: loads 660 synthetic demo transactions
-uvicorn app.main:app --reload                      # API docs: http://localhost:8000/docs
-```
+- Python 3.10 or a compatible version supported by the backend dependencies.
+- Node.js and npm.
+- Git.
 
-In a second terminal:
-
-```powershell
-cd frontend
-npm install
-npm run dev                                         # http://localhost:5173
-```
-
-`backend/artifacts/` (a 2.7 MB model + metadata) and `backend/data/demo_transactions.csv` (synthetic) are committed so the app runs and deploys without the 150 MB dataset. Re-run training to regenerate them.
-
-## API
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/health` | Service and model status |
-| POST | `/api/v1/predict` | Score one transaction (`Time`, `V1`–`V28`, `Amount`) with explanation |
-| POST | `/api/v1/predict/batch` | Score a CSV (≤ 5 MB, ≤ 5,000 rows, strict column/number validation) |
-| GET | `/api/v1/transactions` | Filter by status, risk, flagged, id; sort; paginate |
-| GET | `/api/v1/transactions/{id}` | Detail, explanation, audit history |
-| PATCH | `/api/v1/transactions/{id}/review` | Set status + note (writes an audit event) |
-| GET | `/api/v1/metrics` | Dashboard aggregates |
-| GET | `/api/v1/models` | Model comparison, threshold table, importance, split report |
-| GET | `/api/v1/monitoring` | Volume, latency, errors, input drift |
-| GET | `/api/v1/samples` | Synthetic example inputs for the demo form |
+### 1. Clone the Repository
 
 ```bash
-curl -X POST localhost:8000/api/v1/predict -H "Content-Type: application/json" -d @transaction.json
+git clone https://github.com/Charan-dev247/FraudShield-AI.git
+cd FraudShield-AI
 ```
 
-## Tests and CI
+### 2. Configure the Backend
+
+Open a terminal in the repository root:
+
+```bash
+cd backend
+python -m venv .venv
+```
+
+Activate the virtual environment.
+
+**Windows PowerShell**
 
 ```powershell
-cd backend; pytest -q          # 13 tests; train a tiny model on synthetic data, no real dataset needed
-cd frontend; npm run build     # type-check + production build
+.\.venv\Scripts\Activate.ps1
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs both on every push and pull request.
+**macOS / Linux**
 
-## Docker
-
-```powershell
-docker compose up --build      # Postgres + API + nginx-served frontend → http://localhost:8080
+```bash
+source .venv/bin/activate
 ```
 
-## Deploying
+Install dependencies:
 
-Suggested: frontend on Vercel (root `frontend`, env `VITE_API_URL=https://<your-api>`), API on Render using `backend/Dockerfile`, managed PostgreSQL (e.g. Neon) via `DATABASE_URL`, and `CORS_ORIGINS=https://<your-frontend>`. Check each provider's current free-tier limits and sleep behaviour first. SQLite is not suitable on hosts with ephemeral disks. Use HTTPS and keep secrets out of git.
-
-## What changed from the original notebook
-
-| Problem in the notebook | Fix |
-|---|---|
-| `Amount` scaled on the full dataset before splitting (leakage) | Scaling inside a `Pipeline`, fitted on training data only |
-| `Scaled_Time` created after `X_train/X_test` were built, so it never reached the models | Time handled by the pipeline's feature step |
-| Data path `../Data/…` did not match the `data/` folder | Corrected |
-| Random split, threshold fixed at 0.5, README claimed RF "better" although ROC-AUC favoured LR | Chronological split, validation-chosen threshold, PR-AUC, confidence intervals |
-| README listed a `notebooks/` folder that did not exist | Corrected structure below |
-
-The notebook is kept for EDA; its modelling cells were fixed and their stale outputs cleared (Restart & Run All to refresh).
-
-## Limitations
-
-- Anonymised PCA features: no human-readable reasons ("unusual location") can or should be produced.
-- 52 test frauds: metrics are uncertain; see the intervals.
-- Explanations are one-feature-at-a-time approximations and can show ~0 impact when the score is already near 0.
-- Demo data are synthetic resamples with jitter and over-represent fraud (~9%), so the drift panel showing a warning on seeded data is expected.
-- Not implemented: authentication/roles, Alembic migrations (tables are created at startup), rate limiting beyond upload caps, true SHAP values, LLM summaries.
-
-## Project structure
-
-```
-backend/   app/ (FastAPI) · ml/ (train, features, evaluate, explain) · scripts/ · tests/ · artifacts/ · data/
-frontend/  src/pages · src/components · src/lib
-NoteBook/  fraud_detection.ipynb (EDA + corrected baseline)
-Images/    screenshots
+```bash
+pip install -r requirements.txt
 ```
 
-**Author:** Suluru Charan, B.Tech CSE (AI), IIITDM Kancheepuram
+Configure any required environment variables according to the backend settings and available model artifacts.
+
+Start the API using the application module:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+The backend should now be available at:
+
+`http://127.0.0.1:8000`
+
+### 3. Configure the Frontend
+
+Open a second terminal from the repository root:
+
+```bash
+cd frontend
+npm install
+```
+
+Create a local `.env` file in the `frontend` directory:
+
+```env
+VITE_API_URL=http://127.0.0.1:8000
+```
+
+Start the frontend:
+
+```bash
+npm run dev
+```
+
+Open the local URL printed by Vite, usually:
+
+`http://localhost:5173`
+
+### 4. Run Tests
+
+From the backend directory, activate the virtual environment and run:
+
+```bash
+python -m pytest -q
+```
+
+The current development test suite previously completed with **13 passing tests**. Results may differ as the repository changes.
+
+Build the frontend for production:
+
+```bash
+cd frontend
+npm run build
+```
+
+**Note:** The backend may require trained model artifacts and other configuration files to be present. Follow the repository's current setup instructions if these are not included in the clone.
+
+## API Documentation
+
+When the backend is running locally, FastAPI provides interactive API documentation at:
+
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- Health endpoint: `http://127.0.0.1:8000/health`
+
+The deployed backend health endpoint is available at:
+
+https://fraudshield-ai-x5ba.onrender.com/health
+
+The backend provides the API functionality used by the frontend for scoring, batch inference, investigations, model metrics, and monitoring.
+
+## Limitations and Future Improvements
+
+### Current Limitations
+
+- **Anonymized inputs:** The PCA components do not provide human-readable merchant, location, or transaction-category information.
+- **Class imbalance:** The test partition contains only 52 fraud cases, limiting the precision of performance estimates.
+- **Demo deployment:** The application is intended for portfolio demonstration, not production financial decisions.
+- **Authentication:** The current demo does not implement a complete authentication and authorization system.
+- **Data persistence:** Persistence depends on the configured database and hosting environment. Local storage on a free hosting instance may be ephemeral.
+- **Monitoring:** Live monitoring indicators should not be interpreted as proof of ongoing production model performance.
+
+### Future Improvements
+
+- Add authentication and role-based access control for investigators and administrators.
+- Configure persistent database storage for durable case and transaction history.
+- Add more extensive API validation, rate limiting, and security controls.
+- Improve experiment tracking and model version management.
+- Add automated retraining and model evaluation pipelines.
+- Expand drift monitoring and investigate alerts using verified labels.
+- Add explainability techniques suited to anonymized PCA features.
+- Evaluate the system on additional datasets and more fraud examples.
+
+## Acknowledgements
+
+- **Dataset:** Kaggle/U​​LB Credit Card Fraud Detection dataset.
+- **Machine learning:** scikit-learn.
+- **Backend API:** FastAPI.
+- **Frontend:** React and Vite.
+
+---
+
+**Built as a full-stack machine learning portfolio project demonstrating fraud scoring, model evaluation, batch inference, and investigation workflows.**
