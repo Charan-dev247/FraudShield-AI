@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body { @apply bg-fog text-ink font-sans antialiased; font-feature-settings: "tnum" 1; }
+  :focus-visible { @apply outline outline-2 outline-offset-2 outline-tide; }
+  input, select, textarea { @apply rounded-md border border-fog-line bg-white px-3 py-2 text-sm; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+}
