@@ -21,3 +21,25 @@ dist/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Python tooling
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment and secrets
+*.pem
+*.key
+
+# Logs
+*.log
+
+# Local environment overrides
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
