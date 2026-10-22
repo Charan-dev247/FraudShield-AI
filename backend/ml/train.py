@@ -1,3 +1,4 @@
+
 """Train, compare and save the fraud model.
 
     python -m ml.train --data ../data/creditcard.csv
@@ -68,10 +69,17 @@ def run(data_path: str, out_dir: str, min_precision: float = 0.80, seed: int = 4
     fitted, results = {}, []
     for name, clf in candidates(seed, fast).items():
         t0 = time.perf_counter()
+
+        # Fit on TRAIN only.
         pipe = build_pipeline(clf).fit(X_tr, y_tr)
+
+        # Select threshold using VALIDATION predictions.
         p_va = pipe.predict_proba(X_va)[:, 1]
         thr, thr_rule = select_threshold(y_va, p_va, min_precision)
+
+        # Test predictions are for final evaluation/reporting.
         p_te = pipe.predict_proba(X_te)[:, 1]
+
         row = {
             "name": name,
             "fit_seconds": round(time.perf_counter() - t0, 1),
@@ -83,15 +91,20 @@ def run(data_path: str, out_dir: str, min_precision: float = 0.80, seed: int = 4
             "latency_ms": latency_ms(pipe, X_te),
             "pr_curve": pr_points(y_te, p_te),
         }
-        fitted[name] = (pipe, p_te)
+
+        # Retain both sets of predictions so the threshold simulator
+        # can use validation data rather than test data.
+        fitted[name] = (pipe, p_te, p_va)
         results.append(row)
+
         print(f"{name:20s} val AP={row['validation']['average_precision']:.3f}  "
               f"test AP={row['test']['average_precision']:.3f}  thr={thr:.3f}  "
               f"P={row['test']['precision']:.3f} R={row['test']['recall']:.3f}")
 
-    best = max(results, key=lambda r: r["validation"]["average_precision"])  # selection uses VALIDATION only
+    # Select the deployed model using validation average precision.
+    best = max(results, key=lambda r: r["validation"]["average_precision"])
     best_name = best["name"]
-    pipe, p_te = fitted[best_name]
+    pipe, p_te, p_va_best = fitted[best_name]
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -113,9 +126,15 @@ def run(data_path: str, out_dir: str, min_precision: float = 0.80, seed: int = 4
         "split_strategy": "chronological 70/15/15 by Time",
         "input_columns": RAW_COLUMNS,
         "baseline": {c: float(train[c].median()) for c in RAW_COLUMNS},
-        "train_stats": {c: {"mean": float(train[c].mean()), "std": float(train[c].std())} for c in RAW_COLUMNS},
+        "train_stats": {
+            c: {"mean": float(train[c].mean()), "std": float(train[c].std())}
+            for c in RAW_COLUMNS
+        },
         "comparison": results,
-        "threshold_table": threshold_table(y_te, p_te),
+
+        # Use VALIDATION labels and predictions for threshold simulation.
+        "threshold_table": threshold_table(y_va, p_va_best),
+
         "feature_importance": importance,
         "dataset_note": "Kaggle/ULB credit card fraud (European cardholders, Sept 2013). "
                         "V1-V28 are anonymised PCA components; this is not a validated bank system.",
